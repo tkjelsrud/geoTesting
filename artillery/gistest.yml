@@ -1,0 +1,69 @@
+config:
+
+  target: https://HOSTNAME/server/rest/services/TEST/FeatureServer/0/query
+  plugins:
+    expect:
+      reportFailuresAsErrors: true
+      outputFormat: prettyError
+  http:
+    timeout: 100
+  processor: "artilleryFunc.js"
+  payload:
+    path: "gistest.csv"
+    fields:
+      - "xmin"
+      - "ymin"
+      - "xmax"
+      - "ymax"
+  variables:
+    token: TEST
+  phases:
+    - duration: 10
+      arrivalRate: 1
+      rampTo: 1
+      name: Warm up phase
+    - duration: 50
+      arrivalRate: 1
+      rampTo: 3
+      name: Ramp up load
+
+#before:
+#  - flow:
+#      - post:
+#          url: 'https://HOST/portal/sharing/rest/generateToken'
+#          json:
+#              f: pjson
+#              username: USER
+#              password: PASS
+#              client: requestip
+#              expiration: 1440
+#          capture:
+#              json: $.token
+#              as: token
+#          expect:
+#            - statusCode: 200
+
+scenarios:
+  - flow:
+      - get:
+          url: '/?f=json&returnGeometry=true&spatialRel=esriSpatialRelIntersects&geometry={"xmin":{{ xmin }},"ymin":{{ ymin }},"xmax":{{ xmax }},"ymax":{{ ymax }},"spatialReference":{"wkid":32633,"latestWkid":32633}}&geometryType=esriGeometryEnvelope&inSR=32633&outFields=*&outSR=32633&resultType=tile&token={{ token }}'
+          afterResponse: "printStatus"
+          capture:
+              #- json: $.error.message
+              #  as: errorMsg
+              #  strict: true
+              #- json: $.error.code
+              #  as: errorCode
+              #  strict: true
+              - json: $.features.0.geometry.rings.0.length
+                as: geometry
+                strict: true
+          expect:
+            - statusCode: 200
+            #- contentType: json
+            - hasProperty: features[0].geometry.rings[0]
+      - log: "JSON Payload: Geometry rings: {{ geometry }}"
+      #- log: "JSON Error: {{ errorCode }} {{ errorMsg }}"
+
+
+# npx artillery run gistest.yml
